@@ -6,10 +6,9 @@ import matplotlib.patches as patches
 import csv
 import os
 import numpy as np
-import math
 from copy import deepcopy
-
-# modificacion de la funcion fitness esperando arreglar el problema de las laminas
+from Pieza import Pieza
+from Individuo import Individuo
 
 # Datos iniciales
 laminas = []  # Lista de laminas (ancho, alto)
@@ -34,30 +33,44 @@ def inicializar_csv():
 
 # Cargar datos desde CSV
 def cargar_datos():
-    global laminas, piezas
-    try:
-        with open("laminas.csv", "r") as file:
-            reader = csv.reader(file)
-            laminas = [(int(row[0]), int(row[1])) for row in reader if row]
-    except FileNotFoundError:
-        laminas = []
-    
+    global piezas_seleccionadas, tipo_counter
     try:
         with open("piezas.csv", "r") as file:
             reader = csv.reader(file)
-            piezas = [(int(row[0]), int(row[1])) for row in reader if row]
+            piezas_seleccionadas = []
+            for row in reader:
+                if row:
+                    tipo_id = int(row[0])
+                    ancho = int(row[1])
+                    alto = int(row[2])
+                    cantidad = int(row[3])
+                    
+                    piezas_seleccionadas.append({
+                        'tipo_id': tipo_id,
+                        'dimensiones': (ancho, alto),
+                        'cantidad': cantidad
+                    })
+                    tipo_counter = max(tipo_counter, tipo_id + 1)
     except FileNotFoundError:
-        piezas = []
+        piezas_seleccionadas = []
 
 # Guardar datos en CSV
 def guardar_datos():
+    # Guardar láminas normal
     with open("laminas.csv", "w", newline='') as file:
         writer = csv.writer(file)
         writer.writerows(laminas)
     
+    # Guardar piezas con nueva estructura
     with open("piezas.csv", "w", newline='') as file:
         writer = csv.writer(file)
-        writer.writerows(piezas)
+        for p in piezas_seleccionadas:
+            writer.writerow([
+                p['tipo_id'],
+                p['dimensiones'][0],
+                p['dimensiones'][1],
+                p['cantidad']
+            ])
 
 # Función para registrar una nueva lámina
 def agregar_lamina():
@@ -70,12 +83,28 @@ def agregar_lamina():
     except ValueError:
         messagebox.showerror("Error", "Ingrese valores numéricos válidos")
 
-# Función para registrar una nueva pieza
+# Variable global para llevar el conteo de tipos de piezas
+tipo_counter = 1
+
 def agregar_pieza():
+    global tipo_counter, piezas_seleccionadas
+    
     try:
         ancho = int(entry_ancho_pieza.get())
         alto = int(entry_alto_pieza.get())
-        piezas.append((ancho, alto))
+        cantidad = int(entry_cantidad_pieza.get())
+        
+        # Agregar a la lista de piezas con tipo_id
+        piezas_seleccionadas.append({
+            'tipo_id': tipo_counter,
+            'dimensiones': (ancho, alto),
+            'cantidad': cantidad
+        })
+        
+        # Actualizar lista en GUI
+        lista_piezas.insert(tk.END, f"Tipo {tipo_counter}: {ancho}x{alto} x{cantidad}")
+        tipo_counter += 1
+        
         guardar_datos()
         actualizar_listas()
     except ValueError:
@@ -115,264 +144,109 @@ def seleccionar_pieza():
     else:
         messagebox.showwarning("Advertencia", "Seleccione una pieza")
 
-# Función para actualizar la tabla de piezas seleccionadas
 def actualizar_tabla_piezas():
     for row in tabla_piezas.get_children():
         tabla_piezas.delete(row)
-    for pieza, cantidad in piezas_seleccionadas:
-        tabla_piezas.insert("", tk.END, values=(f"{pieza[0]}x{pieza[1]}", cantidad))
+    for pieza in piezas_seleccionadas:
+        dim = pieza['dimensiones']
+        tabla_piezas.insert("", tk.END, values=(
+            f"Tipo {pieza['tipo_id']}",
+            f"{dim[0]}x{dim[1]}",
+            pieza['cantidad']
+        ))
 
-# Clases para el algoritmo genético
-class Pieza:
-    def __init__(self, ancho, alto, id=None, rotada=False):
-        self.ancho = ancho
-        self.alto = alto
-        self.id = id
-        self.rotada = rotada
-        self.x = 0
-        self.y = 0
-        self.en_lamina = 0  # Nueva propiedad para trackear lámina
-    
-    def rotar(self):
-        self.ancho, self.alto = self.alto, self.ancho
-        self.rotada = not self.rotada
-        return self
-    
-    def area(self):
-        return self.ancho * self.alto
-    
-    def copia(self):
-        nueva_pieza = Pieza(self.ancho, self.alto, self.id, self.rotada)
-        nueva_pieza.x = self.x
-        nueva_pieza.y = self.y
-        nueva_pieza.en_lamina = self.en_lamina
-        return nueva_pieza
-
-class Individuo:
-    def __init__(self, piezas_candidatas, lamina_ancho, lamina_alto):
-        self.piezas = piezas_candidatas
-        self.lamina_ancho = lamina_ancho
-        self.lamina_alto = lamina_alto
-        self.fitness = 0
-        self.distribuciones = []  # Lista de diccionarios con distribución por lámina
-        self.num_laminas = 1
-        self.areas_residuales = []
-    
-    def _calcular_distribucion_laminar(self, piezas_por_ubicar):
-        """Versión mejorada con colocación inteligente y manejo de residuos"""
-        
-        def intentar_colocacion(piezas_a_colocar):
-            matriz = np.zeros((self.lamina_alto, self.lamina_ancho))
-            colocadas = []
-            no_colocadas = []
-            area_util = 0
-            
-            # Estrategia de colocación combinada
-            for pieza in piezas_a_colocar:
-                ubicada = False
-                
-                # Primero intentar en posición original
-                for y in range(self.lamina_alto - pieza.alto + 1):
-                    for x in range(self.lamina_ancho - pieza.ancho + 1):
-                        if self._puede_ubicar(matriz, x, y, pieza.ancho, pieza.alto):
-                            self._marcar_matriz(matriz, x, y, pieza.ancho, pieza.alto)
-                            pieza_copia = pieza.copia()
-                            pieza_copia.x = x
-                            pieza_copia.y = y
-                            colocadas.append(pieza_copia)
-                            area_util += pieza_copia.area()
-                            ubicada = True
-                            break
-                    if ubicada: break
-                
-                # Si no se ubicó, intentar rotada (si es posible)
-                if not ubicada and pieza.ancho != pieza.alto:
-                    pieza_rotada = pieza.copia().rotar()
-                    for y in range(self.lamina_alto - pieza_rotada.alto + 1):
-                        for x in range(self.lamina_ancho - pieza_rotada.ancho + 1):
-                            if self._puede_ubicar(matriz, x, y, pieza_rotada.ancho, pieza_rotada.alto):
-                                self._marcar_matriz(matriz, x, y, pieza_rotada.ancho, pieza_rotada.alto)
-                                pieza_rotada.x = x
-                                pieza_rotada.y = y
-                                colocadas.append(pieza_rotada)
-                                area_util += pieza_rotada.area()
-                                ubicada = True
-                                break
-                        if ubicada: break
-                
-                if not ubicada:
-                    no_colocadas.append(pieza)
-            
-            return {
-                'matriz': matriz,
-                'piezas': colocadas,
-                'piezas_no_ubicadas': no_colocadas,
-                'area_utilizada': area_util,
-                'areas_residuales': self._calcular_areas_residuales(matriz)
-            }
-        
-        # Orden inicial: piezas grandes primero
-        piezas_ordenadas = sorted(piezas_por_ubicar, key=lambda p: p.area(), reverse=True)
-        
-        # Primer intento de colocación
-        resultado = intentar_colocacion(piezas_ordenadas)
-        
-        # Si quedan piezas sin ubicar, intentar con rotaciones aleatorias
-        if resultado['piezas_no_ubicadas']:
-            piezas_reordenadas = [
-                p.rotar().copia() if random.random() < 0.3 else p.copia()
-                for p in resultado['piezas_no_ubicadas']
-            ]
-            random.shuffle(piezas_reordenadas)
-            resultado_rotado = intentar_colocacion(piezas_reordenadas + resultado['piezas'])
-            
-            # Conservar el mejor resultado
-            if resultado_rotado['area_utilizada'] > resultado['area_utilizada']:
-                resultado = resultado_rotado
-        
-        # Calcular áreas residuales finales
-        resultado['areas_residuales'] = self._calcular_areas_residuales(resultado['matriz'])
-        
-        return resultado   
-    
-    def _calcular_areas_residuales(self, matriz):
-        """Identifica áreas residuales usando algoritmo de búsqueda por regiones"""
-        areas = []
-        visitados = np.zeros_like(matriz)
-        
-        for y in range(matriz.shape[0]):
-            for x in range(matriz.shape[1]):
-                if matriz[y, x] == 0 and visitados[y, x] == 0:
-                    ancho = 0
-                    alto = 0
-                    # Buscar límites del área residual
-                    for i in range(y, matriz.shape[0]):
-                        if matriz[i, x] == 0:
-                            alto += 1
-                        else:
-                            break
-                    for j in range(x, matriz.shape[1]):
-                        if matriz[y, j] == 0:
-                            ancho += 1
-                        else:
-                            break
-                    areas.append(ancho * alto)
-                    visitados[y:y+alto, x:x+ancho] = 1
-        return areas
-    
-    def _puede_ubicar(self, matriz, x, y, ancho, alto):
-        """Verifica si la pieza cabe en la posición (x,y)"""
-        if y + alto > matriz.shape[0] or x + ancho > matriz.shape[1]:
-            return False
-        return np.all(matriz[y:y+alto, x:x+ancho] == 0)
-    
-    def _marcar_matriz(self, matriz, x, y, ancho, alto):
-        """Marca el área ocupada en la matriz"""
-        matriz[y:y+alto, x:x+ancho] = 1
-    
-    def calcular_fitness(self):
-        self.distribuciones = []
-        piezas_restantes = self.piezas.copy()
-        total_area_piezas = sum(p.area() for p in self.piezas)
-        total_area_utilizada = 0
-        areas_residuales_totales = []
-        
-        while piezas_restantes:
-            distribucion = self._calcular_distribucion_laminar(piezas_restantes)
-            self.distribuciones.append(distribucion)
-            piezas_restantes = distribucion['piezas_no_ubicadas']
-            total_area_utilizada += distribucion['area_utilizada']
-            areas_residuales_totales.extend(distribucion['areas_residuales'])
-        
-        # Cálculo de métricas clave
-        utilizacion_promedio = np.mean([d['area_utilizada'] / (self.lamina_ancho * self.lamina_alto) 
-                                    for d in self.distribuciones])
-        
-        # Cálculo del mínimo teórico de láminas requeridas
-        area_lamina = self.lamina_ancho * self.lamina_alto
-        minimo_laminas = max(1, int(np.ceil(total_area_piezas / area_lamina)))
-        
-        # Penalización solo por exceso de láminas sobre el mínimo teórico
-        exceso_laminas = max(0, len(self.distribuciones) - minimo_laminas)
-        penalizacion = 0.05 * exceso_laminas  # Penaliza 5% por lámina extra
-        
-        # Fitness compuesto
-        self.fitness = (utilizacion_promedio * 0.8) - penalizacion
-        
-        return self.fitness
 
 # Funciones para el algoritmo genético
-def crear_poblacion_inicial(piezas_raw, lamina_ancho, lamina_alto):
-    """Crea una población inicial de individuos"""
+def crear_poblacion_inicial(piezas_seleccionadas, lamina_ancho, lamina_alto):
     poblacion = []
     
+    # Generar plantilla base de piezas
+    todas_piezas = []
+    tipo_id = 0
+    for (ancho, alto), cantidad in piezas_seleccionadas:
+        tipo_id += 1
+        for i in range(cantidad):
+            todas_piezas.append(Pieza(ancho, alto, tipo_id, id=f"{tipo_id}-{i}"))
+    
+    # Crear población
     for _ in range(POP_SIZE):
-        # Crear lista de piezas para este individuo
-        piezas_candidatas = []
-        for pieza_raw, cantidad in piezas_raw:
-            for i in range(cantidad):
-                # Decidir aleatoriamente si rotar la pieza
-                rotada = random.random() > 0.5
-                pieza = Pieza(pieza_raw[0], pieza_raw[1], id=len(piezas_candidatas))
-                if rotada and pieza.ancho != pieza.alto:  # No rotar si es cuadrada
-                    pieza.rotar()
-                piezas_candidatas.append(pieza)
+        # Hacer copia profunda y barajar
+        piezas_individuo = [p.copia() for p in todas_piezas]
+        random.shuffle(piezas_individuo)
         
-        # Barajar las piezas para crear un orden aleatorio
-        random.shuffle(piezas_candidatas)
+        # Aplicar rotaciones iniciales
+        for p in piezas_individuo:
+            if random.random() < 0.5 and p.ancho != p.alto:
+                p.rotar()
         
-        # Crear individuo
-        individuo = Individuo(piezas_candidatas, lamina_ancho, lamina_alto)
-        individuo.calcular_fitness()
-        poblacion.append(individuo)
+        poblacion.append(Individuo(piezas_individuo, lamina_ancho, lamina_alto))
     
     return poblacion
 
-def seleccion_torneo(poblacion, minimo_teorico):
+def seleccion_torneo(poblacion):
+    """Selección por torneo"""
     seleccionados = []
     for _ in range(POP_SIZE):
+        # Seleccionar 3 individuos al azar
         competidores = random.sample(poblacion, 3)
-        # Prioriza individuos con número de láminas cercano al mínimo
-        ganador = min(competidores, 
-                     key=lambda x: abs(x.num_laminas - minimo_teorico) + (1 - x.fitness))
+        # Elegir el mejor
+        ganador = max(competidores, key=lambda x: x.fitness)
         seleccionados.append(ganador)
     return seleccionados
 
 def cruce(padre1, padre2):
-    """Cruce de dos individuos"""
     if random.random() > CROSSOVER_RATE:
-        return padre1, padre2
+        return padre1.copia(), padre2.copia()
+
+    # Cruce ordenado que preserva tipos y cantidades
+    tipo_counts = {}
+    for p in padre1.piezas:
+        tipo_counts[p.tipo_id] = tipo_counts.get(p.tipo_id, 0) + 1
+
+    hijo1_piezas = []
+    hijo2_piezas = []
     
-    # Elegir punto de cruce
-    punto_cruce = random.randint(1, len(padre1.piezas) - 1)
-    
-    # Crear nuevos individuos
-    hijo1_piezas = padre1.piezas[:punto_cruce] + padre2.piezas[punto_cruce:]
-    hijo2_piezas = padre2.piezas[:punto_cruce] + padre1.piezas[punto_cruce:]
-    
-    # Crear nuevos individuos
-    hijo1 = Individuo(hijo1_piezas, padre1.lamina_ancho, padre1.lamina_alto)
-    hijo2 = Individuo(hijo2_piezas, padre2.lamina_ancho, padre2.lamina_alto)
-    
-    return hijo1, hijo2
+    # Estrategia de cruce por tipo
+    for tipo_id in tipo_counts:
+        piezas_p1 = [p for p in padre1.piezas if p.tipo_id == tipo_id]
+        piezas_p2 = [p for p in padre2.piezas if p.tipo_id == tipo_id]
+        
+        # Cruzar por tipo
+        punto = random.randint(1, len(piezas_p1)-1)
+        hijo1_tipo = piezas_p1[:punto] + piezas_p2[punto:]
+        hijo2_tipo = piezas_p2[:punto] + piezas_p1[punto:]
+        
+        hijo1_piezas.extend(hijo1_tipo)
+        hijo2_piezas.extend(hijo2_tipo)
+
+    # Barajar manteniendo integridad de tipos
+    random.shuffle(hijo1_piezas)
+    random.shuffle(hijo2_piezas)
+
+    return (
+        Individuo(hijo1_piezas, padre1.lamina_ancho, padre1.lamina_alto),
+        Individuo(hijo2_piezas, padre2.lamina_ancho, padre2.lamina_alto)
+    )
 
 def mutacion(individuo):
-    """Mutación de un individuo"""
-    for i in range(len(individuo.piezas)):
-        if random.random() < MUTATION_RATE:
-            # Tipos de mutación:
-            # 1. Cambiar posición
-            # 2. Rotar pieza
-            tipo_mutacion = random.randint(1, 2)
-            
-            if tipo_mutacion == 1:
-                # Cambiar posición (intercambiar con otra pieza)
-                j = random.randint(0, len(individuo.piezas) - 1)
-                individuo.piezas[i], individuo.piezas[j] = individuo.piezas[j], individuo.piezas[i]
-            else:
-                # Rotar pieza
-                if individuo.piezas[i].ancho != individuo.piezas[i].alto:  # No rotar si es cuadrada
-                    individuo.piezas[i].rotar()
+    # Solo permite intercambiar piezas del mismo tipo
+    piezas_por_tipo = {}
+    for p in individuo.piezas:
+        if p.tipo_id not in piezas_por_tipo:
+            piezas_por_tipo[p.tipo_id] = []
+        piezas_por_tipo[p.tipo_id].append(p)
+    
+    # Mutar por tipo
+    for tipo_id, piezas in piezas_por_tipo.items():
+        if len(piezas) > 1 and random.random() < MUTATION_RATE:
+            idx1, idx2 = random.sample(range(len(piezas)), 2)
+            # Intercambiar posición
+            piezas[idx1], piezas[idx2] = piezas[idx2], piezas[idx1]
+            # Rotar aleatoriamente
+            if random.random() < 0.5:
+                piezas[idx1].rotar()
+            if random.random() < 0.5:
+                piezas[idx2].rotar()
     
     return individuo
 
@@ -443,11 +317,6 @@ def algoritmo_genetico(piezas_seleccionadas, lamina_ancho, lamina_alto):
 
     return mejor_individuo, mejores_fitness
 
-def calcular_minimo_laminas(piezas, lamina_ancho, lamina_alto):
-    area_total = sum(p.ancho * p.alto for p in piezas)
-    area_lamina = lamina_ancho * lamina_alto
-    return max(1, math.ceil(area_total / area_lamina))
-
 # Expandir las piezas seleccionadas para el algoritmo genético
 def expandir_piezas(piezas_seleccionadas):
     todas_piezas = []
@@ -458,6 +327,8 @@ def expandir_piezas(piezas_seleccionadas):
 
 # Algoritmo Genético - Ejecución
 def ejecutar_algoritmo_genetico():
+    global mejor_individuo_global
+    
     if not lamina_seleccionada:
         messagebox.showerror("Error", "Seleccione una lámina")
         return
@@ -465,35 +336,151 @@ def ejecutar_algoritmo_genetico():
         messagebox.showerror("Error", "Seleccione al menos una pieza")
         return
     
-    print("Ejecutando algoritmo genético...")
+
+    # Validar parámetros del AG
+    try:
+        actualizar_parametros_ag()
+    except:
+        messagebox.showerror("Error", "Valores de parámetros inválidos")
+        return
     
-    # Expandir piezas seleccionadas para el algoritmo
-    piezas_expandidas = []
-    for pieza, cantidad in piezas_seleccionadas:
-        for i in range(cantidad):
-            piezas_expandidas.append(Pieza(pieza[0], pieza[1], id=len(piezas_expandidas)))
-    
-    # Obtener dimensiones de la lámina
-    lamina_ancho = lamina_seleccionada[0]
-    lamina_alto = lamina_seleccionada[1]
-    
+    piezas_para_ag = [
+        (p['dimensiones'], p['cantidad'], p['tipo_id'])
+        for p in piezas_seleccionadas
+    ]
+
+
+    poblacion = crear_poblacion_inicial(piezas_para_ag, lamina_ancho, lamina_alto)
+
+    # Crear lista de todas las piezas con IDs únicos
+    todas_piezas = []
+    id_counter = 0
+    for (ancho, alto), cantidad in piezas_seleccionadas:
+        for _ in range(cantidad):
+            todas_piezas.append(Pieza(ancho, alto, id=id_counter))
+            id_counter += 1
+
     # Verificar que las piezas quepan en la lámina
-    for pieza in piezas_expandidas:
-        if pieza.ancho > lamina_ancho and pieza.alto > lamina_ancho:
-            messagebox.showerror("Error", f"La pieza {pieza.ancho}x{pieza.alto} no cabe en la lámina incluso rotada")
+    lamina_ancho, lamina_alto = lamina_seleccionada
+    max_lamina_dim = max(lamina_ancho, lamina_alto)
+    min_lamina_dim = min(lamina_ancho, lamina_alto)
+    
+    for pieza in todas_piezas:
+        pieza_min_dim = min(pieza.ancho, pieza.alto)
+        pieza_max_dim = max(pieza.ancho, pieza.alto)
+        
+        if pieza_max_dim > max_lamina_dim or pieza_min_dim > min_lamina_dim:
+            messagebox.showerror("Error", 
+                f"La pieza {pieza.ancho}x{pieza.alto} no cabe en la lámina\n" 
+                f"Dimensiones máximas permitidas: {max_lamina_dim}x{min_lamina_dim}")
             return
-        if pieza.alto > lamina_alto and pieza.ancho > lamina_alto:
-            messagebox.showerror("Error", f"La pieza {pieza.ancho}x{pieza.alto} no cabe en la lámina incluso rotada")
-            return
+
+    # Configurar ventana de progreso
+    ventana_progreso = tk.Toplevel(root)
+    ventana_progreso.title("Progreso del Algoritmo Genético")
+    ventana_progreso.geometry("400x150")
     
-    # Ejecutar el algoritmo genético
-    mejor_individuo, historico_fitness = algoritmo_genetico(piezas_seleccionadas, lamina_ancho, lamina_alto)
+    lbl_progreso = tk.Label(ventana_progreso, text="Inicializando algoritmo...")
+    lbl_progreso.pack(pady=10)
     
-    messagebox.showinfo("Info", f"Optimización completada. Aprovechamiento: {mejor_individuo.fitness*100:.2f}%")
-    
-    # Mostrar resultados
-    mostrar_resultado(mejor_individuo)
-    mostrar_grafica_evolucion(historico_fitness)
+    barra_progreso = ttk.Progressbar(ventana_progreso, length=300, mode='determinate')
+    barra_progreso.pack(pady=10)
+
+    # Función para actualizar progreso
+    def actualizar_progreso(generacion, fitness, laminas):
+        barra_progreso['value'] = (generacion / GENERATIONS) * 100
+        lbl_progreso.config(text=f"Generación {generacion}/{GENERATIONS}\n"
+                               f"Fitness: {fitness:.2f} - Láminas: {laminas}")
+        ventana_progreso.update()
+
+    # Ejecutar en segundo plano para no bloquear la GUI
+    def ejecucion_background():
+        nonlocal todas_piezas
+        try:
+            # Crear población inicial corregida
+            poblacion = []
+            for _ in range(POP_SIZE):
+                # Crear copias de las piezas para cada individuo
+                piezas_individuo = [pieza.copia() for pieza in todas_piezas]
+                
+                # Aplicar rotaciones aleatorias
+                for p in piezas_individuo:
+                    if random.random() < 0.5 and p.ancho != p.alto:
+                        p.rotar()
+                
+                # Barajar orden de colocación
+                random.shuffle(piezas_individuo)
+                
+                # Ordenar por tamaño (área descendente)
+                piezas_individuo.sort(key=lambda x: x.area(), reverse=True)
+                
+                individuo = Individuo(piezas_individuo, lamina_ancho, lamina_alto)
+                individuo.calcular_fitness()
+                poblacion.append(individuo)
+
+            mejor_individuo = max(poblacion, key=lambda x: x.fitness)
+            historico_fitness = [mejor_individuo.fitness]
+
+            # Evolución
+            for generacion in range(GENERATIONS):
+                # Selección por torneo
+                seleccionados = seleccion_torneo(poblacion)
+                
+                # Cruce
+                nueva_poblacion = []
+                for i in range(0, POP_SIZE, 2):
+                    if i+1 < POP_SIZE:
+                        padre1 = seleccionados[i]
+                        padre2 = seleccionados[i+1]
+                        hijo1, hijo2 = cruce(padre1, padre2)
+                        nueva_poblacion.extend([hijo1, hijo2])
+                    else:
+                        nueva_poblacion.append(seleccionados[i])
+                
+                # Mutación
+                for i in range(POP_SIZE):
+                    nueva_poblacion[i] = mutacion(nueva_poblacion[i])
+                    nueva_poblacion[i].calcular_fitness()
+                
+                # Elitismo
+                mejor_actual = max(nueva_poblacion, key=lambda x: x.fitness)
+                if mejor_actual.fitness < mejor_individuo.fitness:
+                    peor_idx = min(range(POP_SIZE), key=lambda i: nueva_poblacion[i].fitness)
+                    nueva_poblacion[peor_idx] = mejor_individuo
+                
+                poblacion = nueva_poblacion
+                mejor_individuo = max(poblacion, key=lambda x: x.fitness)
+                historico_fitness.append(mejor_individuo.fitness)
+                
+                # Actualizar interfaz
+                actualizar_progreso(generacion, 
+                                   mejor_individuo.fitness, 
+                                   len(mejor_individuo.distribuciones))
+
+            # Resultados finales
+            ventana_progreso.destroy()
+            mejor_individuo_global = mejor_individuo
+            
+            # Mostrar estadísticas
+            area_total = sum(lamina_ancho * lamina_alto for _ in mejor_individuo.distribuciones)
+            area_usada = sum(p.ancho * p.alto for dist in mejor_individuo.distribuciones for p in dist['piezas'])
+            
+            messagebox.showinfo("Resultado",
+                f"Láminas requeridas: {len(mejor_individuo.distribuciones)}\n"
+                f"Aprovechamiento promedio: {(area_usada / area_total) * 100:.1f}%")
+            
+            # Generar gráficos
+            mostrar_resultado(mejor_individuo)
+            mostrar_grafica_evolucion(historico_fitness)
+
+        except Exception as e:
+            ventana_progreso.destroy()
+            messagebox.showerror("Error", f"Error durante la ejecución:\n{str(e)}")
+            raise e
+
+    # Ejecutar en un hilo separado
+    import threading
+    threading.Thread(target=ejecucion_background, daemon=True).start()
 
 # Función para mostrar el resultado gráfico
 def mostrar_resultado(individuo):
@@ -803,6 +790,31 @@ btn_exportar_imagen.pack(side=tk.LEFT, padx=5, pady=5)
 
 # Variable para almacenar el mejor individuo
 mejor_individuo_global = None
+
+frame_seleccionar_pieza = tk.LabelFrame(frame_der, text="Seleccionar Pieza")
+frame_seleccionar_pieza.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+# Nueva entrada para cantidad
+tk.Label(frame_seleccionar_pieza, text="Cantidad:").pack(anchor=tk.W, padx=5)
+entry_cantidad_pieza = tk.Entry(frame_seleccionar_pieza)
+entry_cantidad_pieza.pack(fill=tk.X, padx=5, pady=5)
+entry_cantidad_pieza.insert(0, "1")
+
+# Botón modificado
+btn_agregar_pieza = tk.Button(
+    frame_seleccionar_pieza, 
+    text="Agregar Tipo de Pieza",
+    command=agregar_pieza
+)
+btn_agregar_pieza.pack(fill=tk.X, padx=5, pady=5)
+
+# Lista modificada
+lista_piezas = tk.Listbox(
+    frame_piezas, 
+    height=10,
+    selectmode=tk.SINGLE
+)
+lista_piezas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
 # Función para exportar una imagen del resultado
 def exportar_imagen(individuo):

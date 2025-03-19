@@ -15,8 +15,8 @@ piezas_seleccionadas = []
 lamina_seleccionada = None
 
 # Algoritmo Genético Configuración
-POP_SIZE = 50  # Tamaño de la población
-GENERATIONS = 100  # Número de generaciones
+POP_SIZE = 30  # Tamaño de la población
+GENERATIONS = 30  # Número de generaciones
 MUTATION_RATE = 0.1  # Probabilidad de mutación
 CROSSOVER_RATE = 0.8  # Probabilidad de cruce
 
@@ -519,22 +519,6 @@ def mostrar_resultado(individuo):
     
     messagebox.showinfo("Info", f"Gráficas guardadas en la carpeta: '{output_dir}'")
 
-def exportar_resultado_csv(individuo):
-    with open("resultado_multilamina.csv", "w", newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(["Lámina", "Pieza", "Ancho", "Alto", "X", "Y", "Rotada"])
-        for idx, distribucion in enumerate(individuo.distribuciones):
-            for pieza in distribucion['piezas']:
-                writer.writerow([
-                    idx+1,
-                    pieza.id,
-                    pieza.ancho,
-                    pieza.alto,
-                    pieza.x,
-                    pieza.y,
-                    pieza.rotada
-                ])
-
 # Función para mostrar la gráfica de evolución
 def mostrar_grafica_evolucion(historico_fitness):
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -774,179 +758,6 @@ btn_exportar_imagen.pack(side=tk.LEFT, padx=5, pady=5)
 
 # Variable para almacenar el mejor individuo
 mejor_individuo_global = None
-
-# Función mejorada para ejecutar el algoritmo genético
-# def ejecutar_algoritmo_genetico():
-#     global mejor_individuo_global
-    
-#     if not lamina_seleccionada:
-#         messagebox.showerror("Error", "Seleccione una lámina")
-#         return
-#     if not piezas_seleccionadas:
-#         messagebox.showerror("Error", "Seleccione al menos una pieza")
-#         return
-    
-#     # Actualizar parámetros
-#     try:
-#         actualizar_parametros_ag()
-#     except:
-#         # Si falla la actualización, usar valores predeterminados
-#         pass
-    
-#     print(f"Ejecutando algoritmo genético con parámetros:")
-#     print(f"Población: {POP_SIZE}, Generaciones: {GENERATIONS}")
-#     print(f"Tasa de mutación: {MUTATION_RATE}, Tasa de cruce: {CROSSOVER_RATE}")
-    
-#     # Expandir piezas seleccionadas para el algoritmo
-#     piezas_expandidas = []
-#     total_piezas = 0
-#     for pieza, cantidad in piezas_seleccionadas:
-#         for i in range(cantidad):
-#             piezas_expandidas.append(Pieza(pieza[0], pieza[1], id=len(piezas_expandidas)))
-#             total_piezas += 1
-    
-#     # Obtener dimensiones de la lámina
-#     lamina_ancho = lamina_seleccionada[0]
-#     lamina_alto = lamina_seleccionada[1]
-    
-#     # Verificar que las piezas quepan en la lámina
-#     for pieza in piezas_expandidas:
-#         if pieza.ancho > lamina_ancho and pieza.alto > lamina_ancho:
-#             messagebox.showerror("Error", f"La pieza {pieza.ancho}x{pieza.alto} no cabe en la lámina incluso rotada")
-#             return
-#         if pieza.alto > lamina_alto and pieza.ancho > lamina_alto:
-#             messagebox.showerror("Error", f"La pieza {pieza.ancho}x{pieza.alto} no cabe en la lámina incluso rotada")
-#             return
-    
-#     # Verificar si el área total de las piezas supera el área de la lámina
-#     area_lamina = lamina_ancho * lamina_alto
-#     area_total_piezas = sum(pieza.area() for pieza in piezas_expandidas)
-#     if area_total_piezas > area_lamina:
-#         resultado = messagebox.askquestion("Advertencia", 
-#                                           f"El área total de las piezas ({area_total_piezas} cm²) supera el área de la lámina ({area_lamina} cm²). " +
-#                                           "Es posible que no todas las piezas puedan colocarse. ¿Desea continuar?")
-#         if resultado != 'yes':
-#             return
-    
-#     # Mostrar barra de progreso
-#     ventana_progreso = tk.Toplevel(root)
-#     ventana_progreso.title("Progreso del Algoritmo Genético")
-#     ventana_progreso.geometry("400x150")
-    
-#     tk.Label(ventana_progreso, text="Ejecutando algoritmo genético...").pack(pady=10)
-    
-#     barra_progreso = ttk.Progressbar(ventana_progreso, length=300, mode='determinate')
-#     barra_progreso.pack(pady=10)
-    
-#     lbl_estado = tk.Label(ventana_progreso, text="Inicializando...")
-#     lbl_estado.pack(pady=10)
-    
-#     # Función para actualizar la barra de progreso
-#     def actualizar_progreso(generacion, fitness):
-#         progreso = (generacion / GENERATIONS) * 100
-#         barra_progreso['value'] = progreso
-#         lbl_estado.config(text=f"Generación {generacion}/{GENERATIONS} - Fitness: {fitness:.4f}")
-#         ventana_progreso.update()
-    
-#     # Tiempo de inicio
-#     import time
-#     tiempo_inicio = time.time()
-    
-#     # Ejecutar el algoritmo genético
-#     try:
-#         # Modificar la función algoritmo_genetico para que actualice la barra de progreso
-#         def algoritmo_genetico_con_progreso(piezas_seleccionadas, lamina_ancho, lamina_alto):
-#             # Crear población inicial
-#             poblacion = crear_poblacion_inicial(piezas_seleccionadas, lamina_ancho, lamina_alto)
-            
-#             # Evolución
-#             mejor_individuo = max(poblacion, key=lambda x: x.fitness)
-#             mejores_fitness = [mejor_individuo.fitness]
-            
-#             for generacion in range(GENERATIONS):
-#                 # Selección
-#                 seleccionados = seleccion_torneo(poblacion)
-                
-#                 # Cruce
-#                 nueva_poblacion = []
-#                 for i in range(0, POP_SIZE, 2):
-#                     if i + 1 < POP_SIZE:
-#                         hijo1, hijo2 = cruce(seleccionados[i], seleccionados[i + 1])
-#                         nueva_poblacion.append(hijo1)
-#                         nueva_poblacion.append(hijo2)
-#                     else:
-#                         nueva_poblacion.append(seleccionados[i])
-                
-#                 # Mutación
-#                 for i in range(POP_SIZE):
-#                     nueva_poblacion[i] = mutacion(nueva_poblacion[i])
-                
-#                 # Calcular fitness de la nueva población
-#                 for individuo in nueva_poblacion:
-#                     individuo.calcular_fitness()
-                
-#                 # Elitismo (mantener al mejor individuo)
-#                 mejor_actual = max(nueva_poblacion, key=lambda x: x.fitness)
-#                 if mejor_actual.fitness > mejor_individuo.fitness:
-#                     mejor_individuo = mejor_actual
-#                 else:
-#                     # Reemplazar el peor individuo por el mejor de la generación anterior
-#                     peor_idx = min(range(POP_SIZE), key=lambda i: nueva_poblacion[i].fitness)
-#                     nueva_poblacion[peor_idx] = mejor_individuo
-                
-#                 # Actualizar población
-#                 poblacion = nueva_poblacion
-                
-#                 # Registrar el mejor fitness
-#                 mejores_fitness.append(mejor_individuo.fitness)
-                
-#                 # Actualizar barra de progreso cada 5 generaciones
-#                 if generacion % 5 == 0 or generacion == GENERATIONS - 1:
-#                     actualizar_progreso(generacion + 1, mejor_individuo.fitness)
-            
-#             return mejor_individuo, mejores_fitness
-        
-#         # Ejecutar el algoritmo
-#         mejor_individuo, historico_fitness = algoritmo_genetico_con_progreso(piezas_seleccionadas, lamina_ancho, lamina_alto)
-#         mejor_individuo_global = mejor_individuo
-        
-#         # Calcular tiempo de ejecución
-#         tiempo_ejecucion = time.time() - tiempo_inicio
-        
-#         # Cerrar ventana de progreso
-#         ventana_progreso.destroy()
-        
-#         # Mostrar resultados
-#         messagebox.showinfo("Info", f"Optimización completada. Aprovechamiento: {mejor_individuo.fitness*100:.2f}%")
-        
-#         # Actualizar estadísticas
-#         area_lamina = lamina_ancho * lamina_alto
-#         area_usada = sum(pieza.ancho * pieza.alto for pieza in mejor_individuo.distribucion)
-#         piezas_colocadas = len(mejor_individuo.distribucion)
-        
-#         lbl_area_total.config(text=f"Área total de lámina: {area_lamina} cm²")
-#         lbl_area_usada.config(text=f"Área utilizada: {area_usada} cm²")
-#         lbl_aprovechamiento.config(text=f"Aprovechamiento: {mejor_individuo.fitness*100:.2f}%")
-#         lbl_piezas_colocadas.config(text=f"Piezas colocadas: {piezas_colocadas} de {total_piezas}")
-#         lbl_tiempo_ejecucion.config(text=f"Tiempo de ejecución: {tiempo_ejecucion:.2f} segundos")
-        
-#         # Habilitar botones de acción
-#         btn_guardar_resultado.config(state=tk.NORMAL, command=lambda: guardar_resultado(mejor_individuo))
-#         btn_exportar_imagen.config(state=tk.NORMAL, command=lambda: exportar_imagen(mejor_individuo))
-        
-#         # Mostrar resultado gráfico
-#         mostrar_resultado(mejor_individuo)
-        
-#         # Mostrar gráfica de evolución
-#         mostrar_grafica_evolucion(historico_fitness)
-        
-#         # Cambiar a la pestaña de resultados
-#         notebook.select(tab_resultados)
-        
-#     except Exception as e:
-#         ventana_progreso.destroy()
-#         messagebox.showerror("Error", f"Error durante la ejecución: {str(e)}")
-#         raise e
 
 # Función para exportar una imagen del resultado
 def exportar_imagen(individuo):
