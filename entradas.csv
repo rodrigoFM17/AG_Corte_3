@@ -1,0 +1,5 @@
+id,ancho,alto,tipo,cantidad
+0,120.0,120.0,lamina,
+1,50.0,50.0,pieza,10.0
+2,20.0,20.0,pieza,10.0
+3,30.0,40.0,pieza,10.0
