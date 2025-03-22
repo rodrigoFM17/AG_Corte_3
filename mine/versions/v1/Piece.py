@@ -9,4 +9,3 @@ class Piece:
 
     def __repr__(self):
         return f"({self.x},{self.y}) ({self.width}x{self.height})"
-    

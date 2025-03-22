@@ -42,12 +42,11 @@ class GeneticAlgorithm:
         population = self.generations[-1]  # Última generación
         parents = []
 
-        # sorted_population = sorted(population, key=lambda ind: ind.fitness, reverse=True)
-        shuffled_population = random.sample(population, len(population))
+        sorted_population = sorted(population, key=lambda ind: ind.fitness, reverse=True)
 
-        for i in range(0, len(shuffled_population) - 1, 2):
-            parent1 = shuffled_population[i]
-            parent2 = shuffled_population[i + 1]
+        for i in range(0, len(sorted_population) - 1, 2):
+            parent1 = sorted_population[i]
+            parent2 = sorted_population[i + 1]
 
             cut_point = random.randint(1, len(parent1.pieces) - 1)  # Punto de corte aleatorio
 
@@ -102,29 +101,12 @@ class GeneticAlgorithm:
                     if random.random() < self.mutation_rate:
                         piece.width, piece.height = piece.height, piece.width  # Rotar la pieza
                         piece.rotated = not piece.rotated
-                    subject.place_pieces()
-                    
+                        subject.place_pieces()
 
     def prune(self):
-        """Reduce la población al tamaño original manteniendo el 20% de los mejores individuos y el 80% aleatorio."""
-        population = self.generations[-1]
-        population_size = self.population_size
-        
-        # Determinar cuántos individuos mantener por elitismo (20%)
-        elite_count = max(1, int(0.2 * population_size))  # Asegura al menos 1 individuo elite
-        random_count = population_size - elite_count  # El resto será aleatorio
-
-        # Ordenar la población por fitness (mejores primero)
-        sorted_population = sorted(population, key=lambda ind: ind.fitness, reverse=True)
-
-        # Seleccionar los mejores (elitismo)
-        elite_individuals = sorted_population[:elite_count]
-
-        # Seleccionar el resto aleatoriamente del total de la población (sin importar fitness)
-        random_individuals = random.sample(population, random_count)
-
-        # Nueva generación con mezcla de élite y aleatorio
-        self.generations[-1] = elite_individuals + random_individuals
+        """Reduce la población al tamaño original manteniendo los mejores individuos."""
+        sorted_subjects = sorted(self.generations[-1], key=lambda ind: ind.fitness, reverse=True)  # Ordenar por fitness
+        self.generations[-1] = sorted_subjects[:self.population_size]  # Mantener los mejores
 
     def start(self):
         self.set_first_generation()
@@ -146,7 +128,7 @@ lamina_base = (120, 120)
 piezas = [Piece(50, 50) for _ in range(10)] + [Piece(20, 20) for _ in range(10)] +  [Piece(30, 40) for _ in range(10)]
 
 # Crear algoritmo genético con 10 individuos y 50 generaciones
-ga = GeneticAlgorithm(population_size=100, n_generations=1000, base_plate=lamina_base, pieces=piezas, crossover_rate=0.6, mutation_rate=0.5)
+ga = GeneticAlgorithm(population_size=50, n_generations=500, base_plate=lamina_base, pieces=piezas, crossover_rate=0.6, mutation_rate=0.5)
 
 ga.start()
 
