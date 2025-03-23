@@ -3,7 +3,6 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import shutil
-import numpy as np
 
 class Subject:
     def __init__(self, plate_width, plate_height, pieces):
@@ -16,50 +15,44 @@ class Subject:
     def set_pieces(self, pieces):
         self.pieces = pieces
 
-    
-
     def place_pieces(self):
-        """Coloca las piezas en las láminas usando una matriz de ocupación de 1 y 0."""
-        self.plates_used = []  # Lista de láminas
-        plate_matrix = np.zeros((self.plate_height, self.plate_width), dtype=int)  # Matriz de ocupación de la primera lámina
-        current_plate = []  # Lista de piezas en la lámina actual
+        """
+        Coloca las piezas en el orden que aparecen, sin solapamientos.
+        """
+        self.plates_used = [[]]  # Primera lámina
+
+        x_actual = 0
+        y_actual = 0
+        altura_fila = 0
 
         for piece in self.pieces:
-            placed = False  # Bandera para verificar si la pieza fue colocada
+            pw, ph = piece.width, piece.height
 
-            # Buscar la primera posición libre donde quepa la pieza
-            for y in range(self.plate_height - piece.height + 1):
-                for x in range(self.plate_width - piece.width + 1):
-                    # Verificar si la pieza cabe en este espacio sin solaparse
-                    if np.all(plate_matrix[y:y + piece.height, x:x + piece.width] == 0):
-                        # Colocar la pieza en la lámina
-                        piece.x, piece.y = x, y
-                        piece.plate = len(self.plates_used) + 1  # Índice de la lámina
-                        current_plate.append(piece)
+            # Si la pieza no cabe en X, mover a la siguiente fila
+            if x_actual + pw > self.plate_width:
+                x_actual = 0
+                y_actual += altura_fila  # Mover hacia abajo
+                altura_fila = 0  # Reset de altura de fila
 
-                        # Marcar el espacio ocupado en la matriz
-                        plate_matrix[y:y + piece.height, x:x + piece.width] = 1
+            # Si la pieza no cabe en Y, usar nueva lámina
+            if y_actual + ph > self.plate_height:
+                self.plates_used.append([])  # Nueva lámina
+                x_actual = 0
+                y_actual = 0
+                altura_fila = 0
 
-                        placed = True
-                        break
-                if placed:
-                    break
+            # Colocar la pieza en la posición actual
+            piece.x = x_actual
+            piece.y = y_actual
+            piece.plate = len(self.plates_used) - 1  # Índice de la lámina
 
-            # Si la pieza no pudo colocarse, usar una nueva lámina
-            if not placed:
-                self.plates_used.append(current_plate)  # Guardar la lámina actual
-                plate_matrix = np.zeros((self.plate_height, self.plate_width), dtype=int)  # Nueva matriz vacía
-                current_plate = []  # Nueva lista de piezas
+            # self.pieces.append(piece)
+            self.plates_used[-1].append(piece)
 
-                # Intentar colocar la pieza en la nueva lámina
-                piece.x, piece.y = 0, 0  # Se reinicia la posición de colocación
-                piece.plate = len(self.plates_used) + 1
-                current_plate.append(piece)
-                plate_matrix[:piece.height, :piece.width] = 1  # Marcar la ocupación
-
-        # Agregar la última lámina utilizada
-        if current_plate:
-            self.plates_used.append(current_plate)
+            # Actualizar la posición para la siguiente pieza
+            x_actual += pw
+            altura_fila = max(altura_fila, ph)  # Mantener altura máxima de fila
+        self.get_fitness()
 
     def __repr__(self):
         result = ""

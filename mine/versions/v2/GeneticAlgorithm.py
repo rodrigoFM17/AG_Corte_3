@@ -142,7 +142,7 @@ lamina_base = (120, 120)
 piezas = [Piece(50, 50) for _ in range(10)] + [Piece(20, 20) for _ in range(10)] +  [Piece(30, 40) for _ in range(10)]
 
 # Crear algoritmo genético con 10 individuos y 50 generaciones
-ga = GeneticAlgorithm(population_size=20, n_generations=20, base_plate=lamina_base, pieces=piezas, crossover_rate=0.6, mutation_rate=0.5)
+ga = GeneticAlgorithm(population_size=50, n_generations=500, base_plate=lamina_base, pieces=piezas, crossover_rate=0.6, mutation_rate=0.5)
 
 ga.start()
 
