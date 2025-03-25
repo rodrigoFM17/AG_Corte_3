@@ -12,11 +12,61 @@ class Subject:
         self.fitness = 0
         self.plate_width = plate_width
         self.plate_height = plate_height
+        self.plates_matrix = []
+        self.empty_areas = []  # Lista de áreas vacías en cada lámina
 
     def set_pieces(self, pieces):
         self.pieces = pieces
-
     
+    def place_pieces_v2(self):
+
+        print(self.pieces)
+        plates = [[]]
+        pieces_matrix = np.zeros((self.plate_width, self.plate_height))
+
+        for piece in self.pieces :
+
+            piece_w, piece_h = piece.width, piece.height
+            placed = False
+            
+            while not placed :
+                y = 0
+                while y < self.plate_height:
+
+                    piece_placed_y = y + piece_h
+                    x = 0
+                    
+                    while x < self.plate_width:
+
+                        piece_placed_x = x + piece_w
+                        
+                        if (pieces_matrix[x, y] == 0 and piece_placed_x < self.plate_width and piece_placed_y < self.plate_height):
+                            piece_matrix = pieces_matrix[ x:piece_placed_x , y:piece_placed_y ]
+                            if np.all( piece_matrix == 0): 
+                                piece.x = x
+                                piece.y = y
+                                plates[-1].append(piece)
+                                pieces_matrix[ x:piece_placed_x, y:piece_placed_y ] = 1
+                                x = self.plate_width
+                                y = self.plate_height
+                                placed = True
+                                print("pieza ubicada correctamente")
+                                print(pieces_matrix[0])
+                            else :
+                                x += 1
+                        else : 
+                            x += 1
+
+                    y += 1
+
+                if not placed :
+                    print("no se pudo ubicar en esta lamina")
+                    plates.append([])
+                    self.plates_matrix.append(pieces_matrix)
+                    pieces_matrix = np.zeros((self.plate_width, self.plate_height))
+
+        self.plates_used = plates
+        
 
     def place_pieces(self):
         """Coloca las piezas en las láminas usando una matriz de ocupación de 1 y 0."""
@@ -61,15 +111,6 @@ class Subject:
         if current_plate:
             self.plates_used.append(current_plate)
 
-    def __repr__(self):
-        result = ""
-        for i, plate in enumerate(self.plates_used):
-            result += f"Lámina {i+1}:\n"
-            for piece in plate:
-                result += f"{piece}\n"
-            result += "-" * 40 + "\n"
-        return result
-
     def get_fitness(self):
         """Calcula el fitness como la sumatoria del aprovechamiento de cada lámina."""
         total_fitness = 0  # Inicializar fitness
@@ -81,6 +122,15 @@ class Subject:
 
         self.fitness = total_fitness / len(self.plates_used) # Guardar fitness
         return self.fitness
+
+    def __repr__(self):
+        result = ""
+        for i, plate in enumerate(self.plates_used):
+            result += f"Lámina {i+1}:\n"
+            for piece in plate:
+                result += f"{piece}\n"
+            result += "-" * 40 + "\n"
+        return result
     
     def view_plates_distribution(self):
         for i, lamina in enumerate(self.plates_used):
