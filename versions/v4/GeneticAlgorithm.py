@@ -35,22 +35,20 @@ class GeneticAlgorithm:
 
     def select_parents(self):
         if not self.generations:
-            print("No hay generaciones previas para seleccionar padres.")
+            print("no hay generaciones previas para seleccionar padres.")
             return
 
         population = self.generations[-1]
         parents = []
         sorted_population = sorted(population, key=lambda ind: ind.fitness, reverse=True)
 
-        for i in range(len(sorted_population)):
-            for j in range(i, len(sorted_population)):  # Empieza en i para incluir (i, i)
-                parent1 = sorted_population[i]
-                parent2 = sorted_population[j]
-                parents.append((parent1, parent2))
+        for i in range(0, len(sorted_population) - 1, 2):
+            parent1 = sorted_population[i]
+            parent2 = sorted_population[i + 1]
+            parents.append((parent1, parent2))
 
         self.parents = parents
-        print(f"Se seleccionaron {len(parents)} parejas de padres.")
-
+        print(f" se seleccionaron {len(parents)} parejas de padres.")
     
     def crossover(self, crossover_prob=0.8):
         new_generation = []
@@ -84,9 +82,6 @@ class GeneticAlgorithm:
                     if random.random() < self.mutation_rate:
                         piece.width, piece.height = piece.height, piece.width
                         piece.rotated = not piece.rotated
-                subject.place_pieces()
-
-            else: 
                 subject.place_pieces()
                     
     def prune(self):

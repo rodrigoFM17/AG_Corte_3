@@ -121,6 +121,7 @@ class Subject:
         fitness = 0
         for i in range(len(self.plates_used)):
             pieces_area = 0
+            print(self.plates_used)
             current_plate, _ = self.plates_used[i]
             for piece in current_plate:
                 pieces_area += piece.width * piece.height
