@@ -401,7 +401,7 @@ def main():
     
     # Parámetros del algoritmo genético
     poblacion = 30
-    generaciones = 5
+    generaciones = 20
     tasa_cruce = 0.8
     tasa_mutacion = 0.2
     

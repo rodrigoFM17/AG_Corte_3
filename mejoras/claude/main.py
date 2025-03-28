@@ -112,7 +112,8 @@ class Subject:
         current_plate_idx = 0
         
         # Obtener el número máximo de láminas permitidas
-        max_plates = self.global_strategies['max_plates']
+        max_plates = min(self.global_strategies['max_plates'], 
+                     len(self.pieces))  # No más láminas que piezas
         
         # Contador de piezas colocadas
         placed_count = 0
@@ -169,6 +170,21 @@ class Subject:
             self.empty_areas = []
             for _, matrix in self.plates_used:
                 self.empty_areas.append(self.calculate_empty_areas(matrix))
+
+        if len(self.plates_used) > max_plates:
+            self.plates_used = self.plates_used[:max_plates]
+            self.empty_areas = self.empty_areas[:max_plates]
+            
+            # Recalcular qué piezas fueron colocadas
+            placed_pieces_ids = set()
+            for plate, _ in self.plates_used[:max_plates]:
+                for piece in plate:
+                    placed_pieces_ids.add(piece.id)
+            
+            # Marcar las piezas no colocadas
+            for piece in self.pieces:
+                if piece.id not in placed_pieces_ids:
+                    piece.plate = -1  # No colocada
             
         # Calcular fitness
         self.get_fitness()
@@ -260,9 +276,14 @@ class Subject:
     
     def calculate_strategy_stats(self):
         """Calcula estadísticas sobre las estrategias utilizadas"""
+        # Contar directamente las piezas en cada lámina
+        placed_pieces = 0
+        for plates, _ in self.plates_used:
+            placed_pieces += len(plates)
+        
         stats = {
             'total_pieces': len(self.pieces),
-            'placed_pieces': sum(len(plate[0]) for plate in self.plates_used),
+            'placed_pieces': placed_pieces,  # Usar el conteo directo
             'strategies': {
                 'global': PlacementStrategy.get_name(self.global_strategies['default_placement']),
                 'piece_specific': sum(1 for p in self.pieces if p.placement_strategy is not None),
